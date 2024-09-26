@@ -1,71 +1,56 @@
-const protoParser = (decodeFunction) => {
-    // 定义一个正则表达式，用来匹配case分支和protobuf的类型
-    const caseRegex = /case\s+(\d+):\s+n\.(\w+)\s*=\s*e\.(\w+)\(\)/g;
-    
-    // 预定义映射关系，将e.<type>()映射为protobuf的类型
-    const typeMap = {
+用nodejs实现：给定一段js的proto解析代码字符串，还原出protobuf的message定义。
+"e.decode=function(e,r){e instanceof p||(e=p.create(e));for(var a=void 0===r?e.len:e.pos+r,n=new d.serverProto.Treasure;e.pos<a;){var s=e.uint32();switch(s>>>3){case 1:n.Index=e.string();break;case 2:n.MinVip=e.int32();break;case 3:n.Exp=e.double();break;case 4:n.IsOpen=e.bool();break;default:e.skipType(7&s)}}return n}"
+    可以还原出如下proto定义：
+    message Treasure {
+        string Index = 1;
+        int32 MinVip = 2;
+        double Exp = 3;
+        bool IsOpen = 4;
+    }
+
+
+function extractProtoDefinition(protoString) {
+    // 正则表达式匹配 case 语句中的内容
+    const caseRegex = /case (\d+):\s*n\.(\w+)=(e\.(\w+)\(\));/g;
+    const fields = [];
+    let match;
+
+    // 类型映射表
+    const typeMapping = {
         'string': 'string',
         'int32': 'int32',
+        'uint32': 'uint32',
         'double': 'double',
-        'bool': 'bool',
-        // 可以根据需要扩展更多的类型映射
+        'bool': 'bool'
     };
 
-    // 创建一个Message对象来存储字段的相关信息
-    const message = {
-        name: 'Treasure', // 假设message名称是Treasure，可以根据实际需求提取名称
-        fields: []
-    };
-
-    // 使用正则表达式提取case语句中的字段信息
-    let match;
-    while ((match = caseRegex.exec(decodeFunction)) !== null) {
-        const fieldNumber = match[1];
+    while ((match = caseRegex.exec(protoString)) !== null) {
+        const id = match[1];
         const fieldName = match[2];
-        const fieldType = typeMap[match[3]] || 'unknown';
-        
-        message.fields.push({
-            number: fieldNumber,
-            name: fieldName,
-            type: fieldType
-        });
+        const functionName = match[4];
+
+        // 根据函数名称推断字段类型
+        const type = typeMapping[functionName] || 'unknown'; // 未知类型
+
+        fields.push({ type, name: fieldName, id });
     }
 
-    // 生成proto message定义
-    let protoDef = `message ${message.name} {\n`;
-    message.fields.forEach(field => {
-        protoDef += `    ${field.type} ${field.name} = ${field.number};\n`;
+    // 构造 Protobuf message 定义
+    let protoDefinition = `message Treasure {\n`;
+    fields.forEach(field => {
+        protoDefinition += `    ${field.type} ${field.name} = ${field.id};\n`;
     });
-    protoDef += `}`;
+    protoDefinition += `}\n`;
 
-    return protoDef;
-};
+    return protoDefinition;
+}
 
-// 示例代码
-const decodeFunction = `
-e.decode = function(e, t) {
-    e instanceof p || (e = p.create(e));
-    for (var i = void 0 === t ? e.len : e.pos + t, n = new d.serverProto.Treasure; e.pos < i; ) {
-        var r = e.uint32();
-        switch (r >>> 3) {
-        case 1:
-            n.Index = e.string();
-            break;
-        case 2:
-            n.MinVip = e.int32();
-            break;
-        case 3:
-            n.Exp = e.double();
-            break;
-        case 4:
-            n.IsOpen = e.bool();
-            break;
-        default:
-            e.skipType(7 & r)
-        }
-    }
-    return n;
-}`;
+// 给定的 proto 解析代码字符串
+const protoCodeString = "e.decode=function(e,r){e instanceof p||(e=p.create(e));for(var a=void 0===r?e.len:e.pos+r,n=new d.serverProto.Treasure;e.pos<a;){var s=e.uint32();switch(s>>>3){case 1:n.Index=e.string();break;case 2:n.MinVip=e.int32();break;case 3:n.Exp=e.double();break;case 4:n.IsOpen=e.bool();break;default:e.skipType(7&s)}}return n}";
 
-const protoDef = protoParser(decodeFunction);
-console.log(protoDef);
+// 提取并输出 Protobuf 定义
+const protoDefinition = extractProtoDefinition(protoCodeString);
+console.log(protoDefinition);
+
+
+//
