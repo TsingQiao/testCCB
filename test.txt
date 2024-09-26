@@ -1,0 +1,71 @@
+const protoParser = (decodeFunction) => {
+    // 定义一个正则表达式，用来匹配case分支和protobuf的类型
+    const caseRegex = /case\s+(\d+):\s+n\.(\w+)\s*=\s*e\.(\w+)\(\)/g;
+    
+    // 预定义映射关系，将e.<type>()映射为protobuf的类型
+    const typeMap = {
+        'string': 'string',
+        'int32': 'int32',
+        'double': 'double',
+        'bool': 'bool',
+        // 可以根据需要扩展更多的类型映射
+    };
+
+    // 创建一个Message对象来存储字段的相关信息
+    const message = {
+        name: 'Treasure', // 假设message名称是Treasure，可以根据实际需求提取名称
+        fields: []
+    };
+
+    // 使用正则表达式提取case语句中的字段信息
+    let match;
+    while ((match = caseRegex.exec(decodeFunction)) !== null) {
+        const fieldNumber = match[1];
+        const fieldName = match[2];
+        const fieldType = typeMap[match[3]] || 'unknown';
+        
+        message.fields.push({
+            number: fieldNumber,
+            name: fieldName,
+            type: fieldType
+        });
+    }
+
+    // 生成proto message定义
+    let protoDef = `message ${message.name} {\n`;
+    message.fields.forEach(field => {
+        protoDef += `    ${field.type} ${field.name} = ${field.number};\n`;
+    });
+    protoDef += `}`;
+
+    return protoDef;
+};
+
+// 示例代码
+const decodeFunction = `
+e.decode = function(e, t) {
+    e instanceof p || (e = p.create(e));
+    for (var i = void 0 === t ? e.len : e.pos + t, n = new d.serverProto.Treasure; e.pos < i; ) {
+        var r = e.uint32();
+        switch (r >>> 3) {
+        case 1:
+            n.Index = e.string();
+            break;
+        case 2:
+            n.MinVip = e.int32();
+            break;
+        case 3:
+            n.Exp = e.double();
+            break;
+        case 4:
+            n.IsOpen = e.bool();
+            break;
+        default:
+            e.skipType(7 & r)
+        }
+    }
+    return n;
+}`;
+
+const protoDef = protoParser(decodeFunction);
+console.log(protoDef);
